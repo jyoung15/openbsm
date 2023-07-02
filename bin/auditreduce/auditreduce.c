@@ -376,20 +376,25 @@ select_hdr32(tokenstr_t tok, uint32_t *optchkd)
 {
 	uint16_t *ev;
 	int match;
+	time_t record_time;
+	u_int16_t event_type;
+
+	record_time = tok.id == AUT_HEADER32 ? (time_t)tok.tt.hdr32.s : (time_t)tok.tt.hdr32_ex.s;
+	event_type = tok.id == AUT_HEADER32 ? tok.tt.hdr32.e_type : tok.tt.hdr32_ex.e_type;
 
 	SETOPT((*optchkd), (OPT_A | OPT_a | OPT_b | OPT_c | OPT_m | OPT_v));
 
 	/* The A option overrides a, b and d. */
 	if (!ISOPTSET(opttochk, OPT_A)) {
 		if (ISOPTSET(opttochk, OPT_a)) {
-			if (difftime((time_t)tok.tt.hdr32.s, p_atime) < 0) {
+			if (difftime(record_time, p_atime) < 0) {
 				/* Record was created before p_atime. */
 				return (0);
 			}
 		}
 
 		if (ISOPTSET(opttochk, OPT_b)) {
-			if (difftime(p_btime, (time_t)tok.tt.hdr32.s) < 0) {
+			if (difftime(p_btime, record_time) < 0) {
 				/* Record was created after p_btime. */
 				return (0);
 			}
@@ -401,7 +406,7 @@ select_hdr32(tokenstr_t tok, uint32_t *optchkd)
 		 * Check if the classes represented by the event matches
 		 * given class.
 		 */
-		if (au_preselect(tok.tt.hdr32.e_type, &maskp, AU_PRS_BOTH,
+		if (au_preselect(event_type, &maskp, AU_PRS_BOTH,
 		    AU_PRS_USECACHE) != 1)
 			return (0);
 	}
@@ -410,7 +415,7 @@ select_hdr32(tokenstr_t tok, uint32_t *optchkd)
 	if (ISOPTSET(opttochk, OPT_m)) {
 		match = 0;
 		for (ev = p_evec; ev < &p_evec[p_evec_used]; ev++)
-			if (tok.tt.hdr32.e_type == *ev)
+			if (event_type == *ev)
 				match = 1;
 		if (match == 0)
 			return (0);
@@ -546,6 +551,7 @@ select_records(FILE *fp)
 			 * selection criteria.
 			 */
 			switch(tok.id) {
+			case AUT_HEADER32_EX:
 			case AUT_HEADER32:
 					selected = select_hdr32(tok,
 					    &optchkd);
@@ -665,6 +671,7 @@ main(int argc, char **argv)
 			}
 			SETOPT(opttochk, OPT_a);
 			bzero(&tm, sizeof(tm));
+			tm.tm_isdst = -1;
 			strptime(optarg, "%Y%m%d%H%M%S", &tm);
 			strftime(timestr, sizeof(timestr), "%Y%m%d%H%M%S",
 			    &tm);
@@ -678,6 +685,7 @@ main(int argc, char **argv)
 			}
 			SETOPT(opttochk, OPT_b);
 			bzero(&tm, sizeof(tm));
+			tm.tm_isdst = -1;
 			strptime(optarg, "%Y%m%d%H%M%S", &tm);
 			strftime(timestr, sizeof(timestr), "%Y%m%d%H%M%S",
 			    &tm);
@@ -699,6 +707,7 @@ main(int argc, char **argv)
 				usage("'d' is exclusive with 'a' and 'b'");
 			SETOPT(opttochk, OPT_d);
 			bzero(&tm, sizeof(tm));
+			tm.tm_isdst = -1;
 			strptime(optarg, "%Y%m%d", &tm);
 			strftime(timestr, sizeof(timestr), "%Y%m%d", &tm);
 			/* fprintf(stderr, "Time converted = %s\n", timestr); */
